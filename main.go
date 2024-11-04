@@ -49,5 +49,13 @@ func main() {
         news.DELETE("/:id", controllers.DeleteNews) // Rute untuk delete berita
     }
 
+    forms := protectedRoutes.Group("forms")
+    {
+        forms.POST("/", controllers.CreateForm)
+        forms.GET("/", controllers.GetForms)
+        forms.PUT("/:id", controllers.UpdateForm)
+        forms.DELETE("/:id", controllers.DeleteForm)
+    }
+
     r.Run() // Default port 8080
 }
