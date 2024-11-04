@@ -66,6 +66,10 @@ func Login(c *gin.Context) {
         return
     }
 
+
+
+
+     
     // Buat JWT token
     expirationTime := time.Now().Add(24 * time.Hour)
     claims := &Claims{
@@ -85,6 +89,7 @@ func Login(c *gin.Context) {
 
     
 }
+
 func Logout(c *gin.Context) {
     // Instruksikan client untuk menghapus token
     c.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
