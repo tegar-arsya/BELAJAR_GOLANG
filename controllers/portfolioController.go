@@ -5,7 +5,10 @@ import (
     "portfolio-backend/config"
     "portfolio-backend/models"
     "github.com/gin-gonic/gin"
+    "portfolio-backend/helpers"  // Import helper
+
 )
+
 
 // Create Portfolio
 func CreatePortfolio(c *gin.Context) {
@@ -16,39 +19,45 @@ func CreatePortfolio(c *gin.Context) {
     // Handle file upload
     imagePath, err := SaveFile(c, "image")
     if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "error": err.Error()})
-        return
+        helpers.Respond(c, http.StatusBadRequest, "Failed to upload image", gin.H{"error": err.Error()})
+		return
     }
 
     portfolio.ImageUrl = imagePath
-    config.DB.Create(&portfolio)
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Portfolio created successfully"})
+    if err := config.DB.Create(&portfolio).Error; err != nil {
+		helpers.Respond(c, http.StatusInternalServerError, "Failed to create portfolio", nil)
+		return
+	}
+	helpers.Respond(c, http.StatusCreated, "Portfolio created successfully", portfolio)
 }
 
 // Get All Portfolios
 func GetPortfolios(c *gin.Context) {
     var portfolios []models.Portfolio
-    config.DB.Find(&portfolios)
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": portfolios})
+    if err := config.DB.Find(&portfolios).Error; err != nil {
+		helpers.Respond(c, http.StatusInternalServerError, "Failed to fetch portfolios", nil)
+		return
+	}
+    helpers.Respond(c, http.StatusOK, "Portfolios retrieved successfully", portfolios)
 }
 
 // Get Single Portfolio
 func GetPortfolio(c *gin.Context) {
     var portfolio models.Portfolio
     if err := config.DB.Where("id = ?", c.Param("id")).First(&portfolio).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "error": "Portfolio not found!"})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": portfolio})
+		helpers.Respond(c, http.StatusNotFound, "Portfolio not found", nil)
+		return
+	}
+    helpers.Respond(c, http.StatusOK, "Portfolio retrieved successfully", portfolio)
 }
 
 // Update Portfolio
 func UpdatePortfolio(c *gin.Context) {
     var portfolio models.Portfolio
     if err := config.DB.Where("id = ?", c.Param("id")).First(&portfolio).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "error": "Portfolio not found!"})
-        return
-    }
+		helpers.Respond(c, http.StatusNotFound, "Portfolio not found", nil)
+		return
+	}
 
     portfolio.Title = c.PostForm("title")
     portfolio.Description = c.PostForm("description")
@@ -58,17 +67,23 @@ func UpdatePortfolio(c *gin.Context) {
         portfolio.ImageUrl = imagePath
     }
 
-    config.DB.Save(&portfolio)
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Portfolio updated successfully"})
+    if err := config.DB.Save(&portfolio).Error; err != nil {
+		helpers.Respond(c, http.StatusInternalServerError, "Failed to update portfolio", nil)
+		return
+	}
+	helpers.Respond(c, http.StatusOK, "Portfolio updated successfully", portfolio)
 }
 
 // Delete Portfolio
 func DeletePortfolio(c *gin.Context) {
     var portfolio models.Portfolio
     if err := config.DB.Where("id = ?", c.Param("id")).First(&portfolio).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "error": "Portfolio not found!"})
-        return
-    }
-    config.DB.Delete(&portfolio)
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "Portfolio deleted"})
+		helpers.Respond(c, http.StatusNotFound, "Portfolio not found", nil)
+		return
+	}
+    if err := config.DB.Delete(&portfolio).Error; err != nil {
+		helpers.Respond(c, http.StatusInternalServerError, "Failed to delete portfolio", nil)
+		return
+	}
+    helpers.Respond(c, http.StatusOK, "Portfolio deleted successfully", nil)
 }

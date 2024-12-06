@@ -3,8 +3,10 @@ package main
 import (
     "github.com/gin-gonic/gin"
     "portfolio-backend/config"
+    "portfolio-backend/migrations"
     "portfolio-backend/middleware"
     "portfolio-backend/controllers"
+    "portfolio-backend/routes"
 )
 
 func main() {
@@ -12,7 +14,8 @@ func main() {
 
     // Connect to Database
     config.ConnectDatabase()
-
+    // Lakukan migrasi
+    migrations.Migrate()
     // Auth Routes
     r.POST("/register", controllers.Register)
     r.POST("/login", controllers.Login)
@@ -22,15 +25,17 @@ func main() {
     protectedRoutes.Use(middleware.AuthMiddleware())
 
     // Portfolio Routes
-    portfolio := protectedRoutes.Group("portfolios")
-    {
-        portfolio.POST("/", controllers.CreatePortfolio)
-        portfolio.GET("/", controllers.GetPortfolios)
-        portfolio.GET("/:id", controllers.GetPortfolio)
-        portfolio.PUT("/:id", controllers.UpdatePortfolio)
-        portfolio.DELETE("/:id", controllers.DeletePortfolio)
-    }
+    // portfolio := protectedRoutes.Group("portfolios")
+    // {
+    //     portfolio.POST("/", controllers.CreatePortfolio)
+    //     portfolio.GET("/", controllers.GetPortfolios)
+    //     portfolio.GET("/:id", controllers.GetPortfolio)
+    //     portfolio.PUT("/:id", controllers.UpdatePortfolio)
+    //     portfolio.DELETE("/:id", controllers.DeletePortfolio)
+    // }
+    routes.PortfolioRoutes(protectedRoutes)
 
+    
     // About Routes
     about := protectedRoutes.Group("about")
     {
@@ -55,6 +60,10 @@ func main() {
         forms.GET("/", controllers.GetForms)
         forms.PUT("/:id", controllers.UpdateForm)
         forms.DELETE("/:id", controllers.DeleteForm)
+    }
+    formsVeification := protectedRoutes.Group("forms-verification")
+    {
+        formsVeification.POST("/:id/verify", controllers.VerifyForm)
     }
 
     r.Run() // Default port 8080

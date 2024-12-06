@@ -5,6 +5,7 @@ import (
     "portfolio-backend/config"
     "portfolio-backend/models"
     "github.com/gin-gonic/gin"
+    "portfolio-backend/helpers"
 )
 
 // Create About
@@ -15,37 +16,45 @@ func CreateAbout(c *gin.Context) {
 
     imagePath, err := SaveFile(c, "image")
     if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "error": err.Error()})
+        helpers.Respond(c, http.StatusBadRequest, "Failed to upload image", gin.H{"error": err.Error()})
         return
     }
 
     about.ImageUrl = imagePath
-    config.DB.Create(&about)
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "About created successfully"})
+    
+    if err := config.DB.Create(&about).Error; err != nil {
+        helpers.Respond(c, http.StatusInternalServerError, "Failed to create about", nil)
+        return
+    }
+    helpers.Respond(c, http.StatusCreated, "About created successfully", about)
 }
 
 // Get All About
 func GetAbout(c *gin.Context) {
     var about []models.About
-    config.DB.Find(&about)
-    c.JSON(http.StatusOK, gin.H{ "data": about})
+    
+    if err := config.DB.Find(&about).Error; err != nil {
+        helpers.Respond(c, http.StatusInternalServerError, "Error fetching about", nil)
+        return
+    }
+    helpers.Respond(c, http.StatusOK, "About fetched successfully", about)
 }
 
 // Get Single About
 func GetAboutByID(c *gin.Context) {
     var about models.About
     if err := config.DB.Where("id = ?", c.Param("id")).First(&about).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "error": "About not found!"})
+        helpers.Respond(c, http.StatusNotFound,"About not found!", nil)
         return
     }
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": about})
+    helpers.Respond(c, http.StatusOK, "About retrieved successfully", about)
 }
 
 // Update About
 func UpdateAbout(c *gin.Context) {
     var about models.About
     if err := config.DB.Where("id = ?", c.Param("id")).First(&about).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "error": "About not found!"})
+        helpers.Respond(c, http.StatusNotFound, "About not found!", nil)
         return
     }
 
@@ -57,17 +66,23 @@ func UpdateAbout(c *gin.Context) {
         about.ImageUrl = imagePath
     }
 
-    config.DB.Save(&about)
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "About updated successfully"})
+    if err:= config.DB.Save(&about).Error; err != nil {
+        helpers.Respond(c, http.StatusInternalServerError, "Failed to update about", nil)
+        return
+    }
+    helpers.Respond(c, http.StatusOK, "About updated successfully", about)
 }
 
 // Delete About
 func DeleteAbout(c *gin.Context) {
     var about models.About
     if err := config.DB.Where("id = ?", c.Param("id")).First(&about).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "error": "About not found!"})
+       helpers.Respond(c, http.StatusNotFound, "About not found!", nil)
         return
     }
-    config.DB.Delete(&about)
-    c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "message": "About deleted"})
+    if err := config.DB.Delete(&about).Error; err != nil {
+        helpers.Respond(c, http.StatusInternalServerError, "Failed to delete about", nil)
+        return
+    }
+    helpers.Respond(c, http.StatusOK, "About deleted successfully", nil)
 }
