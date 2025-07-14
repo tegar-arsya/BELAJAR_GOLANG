@@ -1,15 +1,11 @@
 // migrations/migrate.go
-
 package migrations
 
 import (
-	"portfolio-backend/config"
-	"portfolio-backend/models"
-	"log"
+    "portfolio-backend/config"
+    "portfolio-backend/models"
 )
 
 func Migrate() {
-	if err := config.DB.AutoMigrate(&models.TokenBlacklist{}); err != nil {
-		log.Fatalf("Error migrating models: %v", err)
-	}
+    config.DB.AutoMigrate( &models.Portfolio{}, &models.About{}, &models.User{}, &models.Cv{}, &models.Pengalaman{}, &models.Sertifikat{}, &models.Article{} )
 }

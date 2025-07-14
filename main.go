@@ -1,70 +1,117 @@
 package main
 
 import (
-    "github.com/gin-gonic/gin"
-    "portfolio-backend/config"
-    "portfolio-backend/migrations"
-    "portfolio-backend/middleware"
-    "portfolio-backend/controllers"
-    "portfolio-backend/routes"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+
+	"portfolio-backend/config"
+	"portfolio-backend/internal/handler"
+	"portfolio-backend/internal/middleware"
+	"portfolio-backend/internal/repository"
+	"portfolio-backend/internal/routes"
+	"portfolio-backend/internal/service"
+	"portfolio-backend/migrations"
+
+	"strings"
 )
 
 func main() {
-    r := gin.Default()
+	r := gin.Default()
+	r.MaxMultipartMemory = 100 << 20
 
-    // Connect to Database
-    config.ConnectDatabase()
-    // Lakukan migrasi
-    migrations.Migrate()
-    // Auth Routes
-    r.POST("/register", controllers.Register)
-    r.POST("/login", controllers.Login)
-    r.POST("/logout", middleware.AuthMiddleware(), controllers.Logout)  // Route untuk logout
-    // Protected Routes
-    protectedRoutes := r.Group("/")
-    protectedRoutes.Use(middleware.AuthMiddleware())
+	// ✅ Middleware CORS
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173", "https://dashboard.tegararsyadani.my.id", "https://tegararsyadani.my.id"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
-    // Portfolio Routes
-    // portfolio := protectedRoutes.Group("portfolios")
-    // {
-    //     portfolio.POST("/", controllers.CreatePortfolio)
-    //     portfolio.GET("/", controllers.GetPortfolios)
-    //     portfolio.GET("/:id", controllers.GetPortfolio)
-    //     portfolio.PUT("/:id", controllers.UpdatePortfolio)
-    //     portfolio.DELETE("/:id", controllers.DeletePortfolio)
-    // }
-    routes.PortfolioRoutes(protectedRoutes)
+	// Static file cache headers (untuk CDN)
+	r.Use(func(c *gin.Context) {
+		if c.Request.Method == "GET" &&
+			(strings.HasPrefix(c.Request.RequestURI, "/porto/") ||
+				strings.HasPrefix(c.Request.RequestURI, "/image/") ||
+				strings.HasPrefix(c.Request.RequestURI, "/journey/") ||
+                strings.HasPrefix(c.Request.RequestURI, "/about/") ||
+                strings.HasPrefix(c.Request.RequestURI, "/file/") ||
+				strings.HasPrefix(c.Request.RequestURI, "/public/")) {
+			c.Header("Cache-Control", "public, max-age=86400")
+		}
+		c.Next()
+	})
 
-    
-    // About Routes
-    about := protectedRoutes.Group("about")
-    {
-        about.POST("/", controllers.CreateAbout)
-        about.GET("/", controllers.GetAbout)
-        about.PUT("/:id", controllers.UpdateAbout)
-        about.DELETE("/:id", controllers.DeleteAbout)
-    }
+	// ✅ DB dan Migrate
+	config.ConnectDatabase()
+	migrations.Migrate()
 
-    // News Routes
-    news := protectedRoutes.Group("news")
-    {
-        news.POST("/", controllers.CreateNews) // Rute untuk membuat berita
-        news.GET("/", controllers.GetAllNews)   // Rute untuk mendapatkan semua berita
-        news.PUT("/:id", controllers.UpdateNews) // Rute untuk update berita
-        news.DELETE("/:id", controllers.DeleteNews) // Rute untuk delete berita
-    }
+    r.Static("/image", "./public/image")
+    r.Static("/file", "./public/file")
+    r.Static("/serti", "./public/serti")
+    r.Static("/journey", "./public/journey")
+    r.Static("/porto", "./public/porto")
+    r.Static("/me", "./public/me")
+    r.Static("/article", "./public/article")
+r.Static("/article-content", "./public/article-content")
 
-    forms := protectedRoutes.Group("forms")
-    {
-        forms.POST("/", controllers.CreateForm)
-        forms.GET("/", controllers.GetForms)
-        forms.PUT("/:id", controllers.UpdateForm)
-        forms.DELETE("/:id", controllers.DeleteForm)
-    }
-    formsVeification := protectedRoutes.Group("forms-verification")
-    {
-        formsVeification.POST("/:id/verify", controllers.VerifyForm)
-    }
+	// ✅ Inisialisasi langsung tanpa NewFunction
+	aboutHandler := &handler.AboutHandler{
+		Service: &service.AboutService{
+			Repo: &repository.AboutRepository{DB: config.DB},
+		},
+	}
+	cvHandler := &handler.CvHandler{
+		Service: &service.CvService{
+			Repo: &repository.CvRepository{DB: config.DB},
+		},
+	}
+	portfolioHandler := &handler.PortofolioHandler{
+		Service: &service.PortofolioService{
+			Repo: &repository.PortofolioRepository{DB: config.DB},
+		},
+	}
+	sertifikatHandler := &handler.SertifikatHandler{
+		Service: &service.SertifikatService{
+			Repo: &repository.SertifikatRepository{DB: config.DB},
+		},
+	}
+	pengalamanHandler := &handler.PengalamanHandler{
+		Service: &service.PengalamanService{
+			Repo: &repository.PengalamanRepository{DB: config.DB},
+		},
+	}
+	authHandler := &handler.AuthHandler{
+		Service: &service.AuthService{
+			Repo: &repository.AuthRepository{DB: config.DB},
+            JwtKey: config.JwtKey,
+		},
+	}
 
-    r.Run() // Default port 8080
+    articleHandler := &handler.ArticleHandler{
+    Service: &service.ArticleService{
+        Repo: &repository.ArticleRepository{DB: config.DB},
+    },
+}
+
+
+	// ✅ Auth routes
+	r.POST("/register", authHandler.Register)
+	r.POST("/login", authHandler.Login)
+	r.POST("/logout", middleware.AuthMiddleware(), authHandler.Logout)
+
+	// ✅ Public dan Admin routes
+	public := r.Group("/api/public")
+	admin := r.Group("/api/admin", middleware.AuthMiddleware())
+
+	routes.RegisterAboutRoutes(public, admin, aboutHandler)
+	routes.RegisterCvRoutes(public, admin, cvHandler)
+	routes.RegisterPortfolioRoutes(public, admin, portfolioHandler)
+	routes.RegisterSertifikatRoutes(public, admin, sertifikatHandler)
+	routes.RegisterPengalamanRoutes(public, admin, pengalamanHandler)
+routes.RegisterArticleRoutes(public, admin, articleHandler)
+	// ✅ Jalankan server
+	r.Run("0.0.0.0:8181")
+//    r.Run("localhost:9191")        // ✅ listen on 127.0.0.1:9191
+
 }
