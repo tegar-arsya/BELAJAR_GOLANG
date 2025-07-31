@@ -3,9 +3,9 @@ package migrations
 
 import (
     "portfolio-backend/config"
-    "portfolio-backend/models"
+    "portfolio-backend/internal/domain/entity"
 )
 
 func Migrate() {
-    config.DB.AutoMigrate( &models.Portfolio{}, &models.About{}, &models.User{}, &models.Cv{}, &models.Pengalaman{}, &models.Sertifikat{}, &models.Article{} )
+    config.DB.AutoMigrate( &entity.Portfolio{}, &entity.About{}, &entity.User{}, &entity.Cv{}, &entity.Pengalaman{}, &entity.Sertifikat{}, &entity.Article{} )
 }
